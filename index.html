@@ -160,7 +160,7 @@
         /* Scanner Instruction */
         .scanner-instruction {
             position: absolute;
-            bottom: 100px;
+            bottom: 180px;
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0,0,0,0.7);
@@ -175,14 +175,14 @@
         /* Controls */
         .controls {
             position: absolute;
-            bottom: 20px;
+            bottom: 90px;
             left: 0;
             right: 0;
             display: flex;
             justify-content: center;
             gap: 15px;
             padding: 0 20px;
-            z-index: 100;
+            z-index: 1000;
         }
         
         .btn {
@@ -262,14 +262,15 @@
             background: white;
             border-radius: 20px 20px 0 0;
             box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-            z-index: 1000;
+            z-index: 900;
             max-height: 50vh;
-            transform: translateY(calc(100% - 60px));
+            transform: translateY(calc(100% - 70px));
             transition: transform 0.3s;
         }
         
         .list-panel.expanded {
             transform: translateY(0);
+            z-index: 1100;
         }
         
         .list-header {
