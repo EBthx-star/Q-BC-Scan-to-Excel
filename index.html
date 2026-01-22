@@ -537,6 +537,9 @@
         let canvasContext;
         let scanning = false;
         let stream = null;
+        let quaggaInitialized = false;
+        let lastScanTime = 0;
+        let lastScanValue = '';
         
         // Charger les scans sauvegardés
         function loadScans() {
@@ -552,6 +555,67 @@
             localStorage.setItem('scans', JSON.stringify(scans));
         }
         
+        // Initialiser Quagga pour les codes-barres
+        function initQuagga() {
+            if (quaggaInitialized) return;
+            
+            Quagga.init({
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: document.querySelector('#scanner-container'),
+                    constraints: {
+                        facingMode: "environment"
+                    },
+                },
+                decoder: {
+                    readers: [
+                        "ean_reader",
+                        "ean_8_reader",
+                        "code_128_reader",
+                        "code_39_reader",
+                        "code_39_vin_reader",
+                        "codabar_reader",
+                        "upc_reader",
+                        "upc_e_reader",
+                        "i2of5_reader"
+                    ]
+                },
+                locate: true,
+                locator: {
+                    patchSize: "medium",
+                    halfSample: true
+                },
+                numOfWorkers: 2,
+                frequency: 10,
+            }, function(err) {
+                if (err) {
+                    console.error('Erreur Quagga:', err);
+                    return;
+                }
+                console.log("Quagga initialisé");
+                Quagga.start();
+                quaggaInitialized = true;
+            });
+            
+            // Détection de code-barres
+            Quagga.onDetected(function(result) {
+                const code = result.codeResult.code;
+                const format = result.codeResult.format;
+                
+                // Éviter les doublons rapides
+                const now = Date.now();
+                if (code === lastScanValue && (now - lastScanTime) < 2000) {
+                    return;
+                }
+                
+                lastScanTime = now;
+                lastScanValue = code;
+                
+                addScan(code, format.toUpperCase());
+            });
+        }
+        
         // Initialiser la caméra
         async function initCamera() {
             video = document.getElementById('video');
@@ -559,6 +623,13 @@
             canvasContext = canvas.getContext('2d');
             
             try {
+                // Masquer la vidéo native pour Quagga
+                video.style.display = 'none';
+                
+                // Initialiser Quagga pour codes-barres
+                initQuagga();
+                
+                // Initialiser aussi le scan QR code en parallèle
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: 'environment' }
                 });
@@ -618,6 +689,15 @@
             if (scans.length > 0 && scans[scans.length - 1].value === value) {
                 return;
             }
+            
+            // Éviter les doublons rapides (même code en moins de 2 secondes)
+            const now = Date.now();
+            if (value === lastScanValue && (now - lastScanTime) < 2000) {
+                return;
+            }
+            
+            lastScanTime = now;
+            lastScanValue = value;
             
             const scan = {
                 id: Date.now(),
