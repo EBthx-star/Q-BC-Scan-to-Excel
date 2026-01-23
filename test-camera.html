@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Caméra</title>
+    <style>
+        body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+        #video { width: 100%; max-width: 500px; border: 3px solid green; display: block; margin: 20px 0; }
+        button { padding: 15px 30px; font-size: 18px; background: green; color: white; border: none; border-radius: 8px; }
+        #status { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <h1>Test Caméra iPhone</h1>
+    <button onclick="startCamera()">Démarrer la caméra</button>
+    <video id="video" autoplay playsinline></video>
+    <div id="status">En attente...</div>
+    
+    <script>
+        const video = document.getElementById('video');
+        const status = document.getElementById('status');
+        
+        async function startCamera() {
+            status.textContent = 'Demande accès caméra...';
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                
+                video.srcObject = stream;
+                status.textContent = '✅ Caméra active !';
+                status.style.background = '#d4edda';
+                
+            } catch (err) {
+                status.textContent = '❌ Erreur: ' + err.name + ' - ' + err.message;
+                status.style.background = '#f8d7da';
+                console.error(err);
+            }
+        }
+        
+        status.innerHTML = 'User Agent: ' + navigator.userAgent + '<br>getUserMedia: ' + !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    </script>
+</body>
+</html>
+```
+
+**6. Scroll en bas, clique sur "Commit changes"** (bouton vert)
+
+**7. Sur ton iPhone Safari, va sur :**
+```
+https://ebthx-star.github.io/scanexcel/test-camera.html
