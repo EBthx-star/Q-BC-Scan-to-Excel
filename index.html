@@ -59,38 +59,76 @@ h1 { font-size: 20px; font-weight: 600; }
     justify-content: center;
     padding: 20px;
     background: #000;
+    position: relative;
 }
 
-.scan-button {
-    width: 120px;
-    height: 120px;
-    background: #34C759;
-    border: none;
-    border-radius: 50%;
-    color: white;
-    font-size: 48px;
-    cursor: pointer;
-    box-shadow: 0 4px 20px rgba(52, 199, 89, 0.4);
-    transition: transform 0.2s;
+#video-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.scan-button:active { transform: scale(0.95); }
+#video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.video-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.scan-frame {
+    width: 280px;
+    height: 280px;
+    border: 3px solid #34C759;
+    border-radius: 20px;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+}
 
 .instruction {
     color: white;
     text-align: center;
     margin-top: 20px;
     font-size: 16px;
+    background: rgba(0,0,0,0.7);
+    padding: 12px 24px;
+    border-radius: 20px;
 }
+
+.capture-btn {
+    position: absolute;
+    bottom: 100px;
+    width: 80px;
+    height: 80px;
+    background: white;
+    border: 5px solid #34C759;
+    border-radius: 50%;
+    cursor: pointer;
+    pointer-events: all;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.capture-btn:active { transform: scale(0.9); }
 
 input[type="file"] { display: none; }
-
-.canvas-container {
-    display: none;
-}
+canvas { display: none; }
 
 .controls {
     position: fixed;
@@ -197,7 +235,22 @@ input[type="file"] { display: none; }
 }
 
 .scan-info { flex: 1; overflow: hidden; }
-.scan-number { font-size: 12px; color: #666; margin-bottom: 4px; }
+.scan-number { 
+    font-size: 12px; 
+    color: #666; 
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.scan-custom-number {
+    background: #007AFF;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
 .scan-value { font-weight: 600; font-size: 14px; word-break: break-all; }
 .scan-type { font-size: 11px; color: #999; margin-top: 4px; }
 
@@ -215,7 +268,7 @@ input[type="file"] { display: none; }
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0,0,0,0.7);
+    background: rgba(0,0,0,0.8);
     z-index: 4000;
     align-items: center;
     justify-content: center;
@@ -239,6 +292,75 @@ input[type="file"] { display: none; }
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 3000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active { display: flex; }
+
+.modal-content {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    max-width: 90%;
+    width: 300px;
+}
+
+.modal-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.modal-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 16px;
+    margin-bottom: 15px;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.modal-btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.modal-btn-cancel {
+    background: #e0e0e0;
+    color: #333;
+}
+
+.modal-btn-confirm {
+    background: #34C759;
+    color: white;
+}
+
+.btn-clear {
+    background: #FF3B30;
+    color: white;
+}
     </style>
 </head>
 <body>
@@ -248,18 +370,21 @@ input[type="file"] { display: none; }
     </header>
     
     <div id="main-container">
-        <button class="scan-button" onclick="document.getElementById('photoInput').click()">📷</button>
-        <div class="instruction">Appuyez pour scanner un code</div>
-        <input type="file" id="photoInput" accept="image/*" capture="environment">
-        
-        <div class="canvas-container">
-            <canvas id="canvas"></canvas>
+        <div id="video-container">
+            <video id="video" playsinline autoplay></video>
+            <div class="video-overlay">
+                <div class="scan-frame"></div>
+                <div class="instruction">Placez le code dans le cadre et appuyez</div>
+                <button class="capture-btn" onclick="capturePhoto()">📸</button>
+            </div>
         </div>
+        <canvas id="canvas"></canvas>
     </div>
     
     <div class="controls">
         <button class="btn" onclick="toggleList()">📋</button>
         <button class="btn" onclick="exportToExcel()">📊</button>
+        <button class="btn btn-clear" onclick="clearAllScans()">🗑️</button>
     </div>
     
     <div class="list-panel" id="listPanel">
@@ -270,22 +395,36 @@ input[type="file"] { display: none; }
         <div class="list-content" id="listContent">
             <div class="empty-state">
                 <div class="empty-state-icon">📷</div>
-                <p>Aucun scan enregistré</p>
+                <p>Aucun scan</p>
             </div>
         </div>
     </div>
     
     <div class="scan-toast" id="scanToast">
-        ✅ <div class="scan-toast-value" id="toastValue"></div>
+        <div class="scan-toast-value" id="toastValue"></div>
     </div>
     
     <div class="loading" id="loading">
         <div class="spinner"></div>
-        <div>Analyse en cours...</div>
+        <div id="loadingText">Analyse en cours...</div>
+    </div>
+    
+    <!-- Modal pour numéro personnalisé -->
+    <div class="modal" id="numberModal">
+        <div class="modal-content">
+            <div class="modal-title">Numéro de scan</div>
+            <input type="text" id="customNumber" class="modal-input" placeholder="Ex: A123, Ref-001..." autocomplete="off">
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-cancel" onclick="cancelNumber()">Annuler</button>
+                <button class="modal-btn modal-btn-confirm" onclick="confirmNumber()">OK</button>
+            </div>
+        </div>
     </div>
     
     <script>
 let scans = [];
+let stream = null;
+let pendingScanData = null;
 
 function loadScans() {
     const saved = localStorage.getItem('scans');
@@ -299,93 +438,142 @@ function saveScans() {
     localStorage.setItem('scans', JSON.stringify(scans));
 }
 
-// Gérer la photo capturée
-document.getElementById('photoInput').addEventListener('change', async function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    document.getElementById('loading').classList.add('active');
-    
+// Initialiser la caméra avec luminosité maximale
+async function initCamera() {
     try {
-        const result = await decodeImage(file);
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: 'environment',
+                advanced: [
+                    { exposureMode: 'continuous' },
+                    { whiteBalanceMode: 'continuous' },
+                    { focusMode: 'continuous' }
+                ]
+            }
+        });
         
-        if (result) {
-            addScan(result.text, result.type);
-        } else {
-            alert('Aucun code détecté. Réessayez avec une photo plus nette.');
+        const video = document.getElementById('video');
+        video.srcObject = stream;
+        
+        // Essayer d'augmenter la luminosité
+        const track = stream.getVideoTracks()[0];
+        const capabilities = track.getCapabilities();
+        
+        if (capabilities.brightness) {
+            await track.applyConstraints({
+                advanced: [{ brightness: capabilities.brightness.max }]
+            });
         }
+        
+        if (capabilities.exposureCompensation) {
+            await track.applyConstraints({
+                advanced: [{ exposureCompensation: capabilities.exposureCompensation.max }]
+            });
+        }
+        
     } catch (err) {
-        alert('Erreur: ' + err.message);
+        alert('Erreur caméra: ' + err.message);
     }
-    
-    document.getElementById('loading').classList.remove('active');
-    e.target.value = '';
-});
-
-// Décoder une image
-async function decodeImage(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        
-        reader.onload = function(e) {
-            const img = new Image();
-            
-            img.onload = function() {
-                const canvas = document.getElementById('canvas');
-                const ctx = canvas.getContext('2d');
-                
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
-                
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                
-                // Essayer QR code avec jsQR
-                const qrCode = jsQR(imageData.data, imageData.width, imageData.height);
-                if (qrCode) {
-                    resolve({ text: qrCode.data, type: 'QR Code' });
-                    return;
-                }
-                
-                // Essayer code-barres avec ZXing
-                try {
-                    const codeReader = new ZXing.BrowserMultiFormatReader();
-                    codeReader.decodeFromImageElement(img)
-                        .then(result => {
-                            resolve({ text: result.getText(), type: result.getBarcodeFormat().toString() });
-                        })
-                        .catch(() => {
-                            resolve(null);
-                        });
-                } catch (err) {
-                    resolve(null);
-                }
-            };
-            
-            img.src = e.target.result;
-        };
-        
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
 }
 
-function addScan(value, type) {
+// Capturer une photo
+function capturePhoto() {
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    
+    document.getElementById('loading').classList.add('active');
+    document.getElementById('loadingText').textContent = 'Analyse du code...';
+    
+    setTimeout(() => decodeFromCanvas(), 100);
+}
+
+// Décoder depuis canvas
+async function decodeFromCanvas() {
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    
+    // Essayer QR code
+    const qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "dontInvert"
+    });
+    
+    if (qrCode) {
+        document.getElementById('loading').classList.remove('active');
+        askForNumber(qrCode.data, 'QR Code');
+        return;
+    }
+    
+    // Essayer code-barres avec ZXing
+    try {
+        const codeReader = new ZXing.BrowserMultiFormatReader();
+        canvas.toBlob(async (blob) => {
+            try {
+                const img = await createImageBitmap(blob);
+                const result = await codeReader.decodeFromImageBitmap(img);
+                document.getElementById('loading').classList.remove('active');
+                askForNumber(result.getText(), result.getBarcodeFormat().toString());
+            } catch (err) {
+                document.getElementById('loading').classList.remove('active');
+                alert('❌ Code non détecté. Assurez-vous que le code est bien dans le cadre et réessayez.');
+            }
+        });
+    } catch (err) {
+        document.getElementById('loading').classList.remove('active');
+        alert('❌ Erreur de lecture: ' + err.message);
+    }
+}
+
+// Demander un numéro personnalisé
+function askForNumber(value, type) {
+    pendingScanData = { value, type };
+    document.getElementById('customNumber').value = '';
+    document.getElementById('numberModal').classList.add('active');
+    document.getElementById('customNumber').focus();
+}
+
+// Annuler le numéro
+function cancelNumber() {
+    document.getElementById('numberModal').classList.remove('active');
+    addScan(pendingScanData.value, pendingScanData.type, null);
+    pendingScanData = null;
+}
+
+// Confirmer le numéro
+function confirmNumber() {
+    const customNumber = document.getElementById('customNumber').value.trim();
+    document.getElementById('numberModal').classList.remove('active');
+    addScan(pendingScanData.value, pendingScanData.type, customNumber || null);
+    pendingScanData = null;
+}
+
+// Enter dans input
+document.getElementById('customNumber').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') confirmNumber();
+});
+
+function addScan(value, type, customNumber) {
     scans.push({
         id: Date.now(),
         value: value,
         type: type,
+        customNumber: customNumber,
         timestamp: new Date().toISOString()
     });
     saveScans();
     updateUI();
-    showToast(value);
+    showToast('✅ Scan #' + scans.length + ' enregistré !');
     if (navigator.vibrate) navigator.vibrate(200);
 }
 
-function showToast(value) {
+function showToast(message) {
     const toast = document.getElementById('scanToast');
-    document.getElementById('toastValue').textContent = value.substring(0, 50);
+    document.getElementById('toastValue').textContent = message;
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), 2000);
 }
@@ -403,7 +591,10 @@ function updateUI() {
     content.innerHTML = scans.map((s, i) => `
         <div class="scan-item">
             <div class="scan-info">
-                <div class="scan-number">#${i + 1}</div>
+                <div class="scan-number">
+                    #${i + 1}
+                    ${s.customNumber ? `<span class="scan-custom-number">${s.customNumber}</span>` : ''}
+                </div>
                 <div class="scan-value">${s.value}</div>
                 <div class="scan-type">${s.type} • ${new Date(s.timestamp).toLocaleString('fr-FR')}</div>
             </div>
@@ -420,43 +611,69 @@ function toggleList() {
 }
 
 function copyScan(value) {
-    navigator.clipboard.writeText(value).then(() => showToast('Copié !'));
+    navigator.clipboard.writeText(value).then(() => showToast('📋 Copié !'));
 }
 
 function deleteScan(id) {
-    if (confirm('Supprimer ?')) {
+    if (confirm('Supprimer ce scan ?')) {
         scans = scans.filter(s => s.id !== id);
         saveScans();
         updateUI();
     }
 }
 
+// Vider tous les scans
+function clearAllScans() {
+    if (scans.length === 0) {
+        alert('Aucun scan à supprimer');
+        return;
+    }
+    
+    if (confirm(`Supprimer tous les ${scans.length} scans ?\n\n⚠️ Cette action est irréversible !`)) {
+        scans = [];
+        saveScans();
+        updateUI();
+        showToast('🗑️ Tous les scans supprimés');
+    }
+}
+
 function exportToExcel() {
     if (scans.length === 0) {
-        alert('Aucun scan');
+        alert('Aucun scan à exporter');
         return;
     }
     
     document.getElementById('loading').classList.add('active');
+    document.getElementById('loadingText').textContent = 'Export en cours...';
     
     setTimeout(() => {
-        const data = [['#', 'Code', 'Type', 'Date/Heure']];
+        const data = [['#', 'Numéro', 'Code', 'Type', 'Date/Heure']];
+        
         scans.forEach((s, i) => {
-            data.push([i + 1, s.value, s.type, new Date(s.timestamp).toLocaleString('fr-FR')]);
+            data.push([
+                i + 1,
+                s.customNumber || '',
+                s.value,
+                s.type,
+                new Date(s.timestamp).toLocaleString('fr-FR')
+            ]);
         });
         
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet(data);
-        ws['!cols'] = [{ wch: 5 }, { wch: 40 }, { wch: 20 }, { wch: 20 }];
+        ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 40 }, { wch: 20 }, { wch: 20 }];
         XLSX.utils.book_append_sheet(wb, ws, 'Scans');
         XLSX.writeFile(wb, `scans_${new Date().toISOString().split('T')[0]}.xlsx`);
         
         document.getElementById('loading').classList.remove('active');
-        showToast(`${scans.length} scans exportés !`);
+        showToast(`📊 ${scans.length} scans exportés !`);
     }, 500);
 }
 
-window.addEventListener('load', loadScans);
+window.addEventListener('load', () => {
+    loadScans();
+    initCamera();
+});
 
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('service-worker-scanner.js').catch(e => console.log('SW:', e));
