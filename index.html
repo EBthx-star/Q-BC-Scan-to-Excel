@@ -3,27 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ScanExcel</title>
+    <title>ScanExcel - Scanner</title>
     
-    <meta name="description" content="Scanner de codes">
+    <meta name="description" content="Scanner de QR codes et codes-barres">
     <meta name="theme-color" content="#34C759">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="ScanExcel">
     
     <link rel="manifest" href="manifest-scanner.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' rx='40' fill='%2334C759'/%3E%3C/svg%3E">
     
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-     
+    
     <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     height: 100vh;
     display: flex;
     flex-direction: column;
-    background: #000;
+    background: #f5f5f5;
     overflow: hidden;
 }
 
@@ -31,6 +34,7 @@ header {
     background: #34C759;
     color: white;
     padding: 15px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     z-index: 1000;
     display: flex;
     justify-content: space-between;
@@ -47,58 +51,49 @@ h1 { font-size: 20px; font-weight: 600; }
     font-weight: 600;
 }
 
-#scanner-container {
+#main-container {
     flex: 1;
-    position: relative;
-    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: #000;
 }
 
-#video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+.scan-button {
+    width: 120px;
+    height: 120px;
+    background: #34C759;
+    border: none;
+    border-radius: 50%;
+    color: white;
+    font-size: 48px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(52, 199, 89, 0.4);
+    transition: transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-canvas {
+.scan-button:active { transform: scale(0.95); }
+
+.instruction {
+    color: white;
+    text-align: center;
+    margin-top: 20px;
+    font-size: 16px;
+}
+
+input[type="file"] { display: none; }
+
+.canvas-container {
     display: none;
 }
 
-.scanner-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    pointer-events: none;
-}
-
-.scanner-frame {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 280px;
-    height: 280px;
-    border: 3px solid #34C759;
-    border-radius: 20px;
-    box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
-}
-
-.scanner-instruction {
-    position: absolute;
-    bottom: 140px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.7);
-    color: white;
-    padding: 12px 24px;
-    border-radius: 20px;
-    font-size: 14px;
-    text-align: center;
-}
-
 .controls {
-    position: absolute;
+    position: fixed;
     bottom: 70px;
     left: 0;
     right: 0;
@@ -149,10 +144,11 @@ canvas {
     color: #34C759;
     margin-top: 4px;
     word-break: break-all;
+    font-size: 14px;
 }
 
 .list-panel {
-    position: absolute;
+    position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
@@ -197,15 +193,16 @@ canvas {
     margin-bottom: 8px;
     display: flex;
     justify-content: space-between;
+    align-items: center;
 }
 
-.scan-info { flex: 1; }
+.scan-info { flex: 1; overflow: hidden; }
 .scan-number { font-size: 12px; color: #666; margin-bottom: 4px; }
 .scan-value { font-weight: 600; font-size: 14px; word-break: break-all; }
 .scan-type { font-size: 11px; color: #999; margin-top: 4px; }
 
 .scan-actions { display: flex; gap: 8px; }
-.action-btn { background: none; border: none; font-size: 20px; cursor: pointer; }
+.action-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px; }
 .action-btn:active { opacity: 0.6; }
 
 .empty-state { text-align: center; padding: 40px 20px; color: #666; }
@@ -214,7 +211,10 @@ canvas {
 .loading {
     display: none;
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     background: rgba(0,0,0,0.7);
     z-index: 4000;
     align-items: center;
@@ -247,19 +247,19 @@ canvas {
         <div class="header-count"><span id="scanCount">0</span> scans</div>
     </header>
     
-    <div id="scanner-container">
-        <video id="video" playsinline autoplay></video>
-        <canvas id="canvas"></canvas>
+    <div id="main-container">
+        <button class="scan-button" onclick="document.getElementById('photoInput').click()">📷</button>
+        <div class="instruction">Appuyez pour scanner un code</div>
+        <input type="file" id="photoInput" accept="image/*" capture="environment">
         
-        <div class="scanner-overlay">
-            <div class="scanner-frame"></div>
-            <div class="scanner-instruction">Placez le code dans le cadre</div>
+        <div class="canvas-container">
+            <canvas id="canvas"></canvas>
         </div>
-        
-        <div class="controls">
-            <button class="btn" onclick="toggleList()">📋</button>
-            <button class="btn" onclick="exportToExcel()">📊</button>
-        </div>
+    </div>
+    
+    <div class="controls">
+        <button class="btn" onclick="toggleList()">📋</button>
+        <button class="btn" onclick="exportToExcel()">📊</button>
     </div>
     
     <div class="list-panel" id="listPanel">
@@ -270,7 +270,7 @@ canvas {
         <div class="list-content" id="listContent">
             <div class="empty-state">
                 <div class="empty-state-icon">📷</div>
-                <p>Aucun scan</p>
+                <p>Aucun scan enregistré</p>
             </div>
         </div>
     </div>
@@ -281,18 +281,11 @@ canvas {
     
     <div class="loading" id="loading">
         <div class="spinner"></div>
-        <div>Export...</div>
+        <div>Analyse en cours...</div>
     </div>
     
     <script>
 let scans = [];
-let video;
-let canvas;
-let ctx;
-let barcodeDetector;
-let scanning = false;
-let lastScan = '';
-let lastTime = 0;
 
 function loadScans() {
     const saved = localStorage.getItem('scans');
@@ -306,75 +299,75 @@ function saveScans() {
     localStorage.setItem('scans', JSON.stringify(scans));
 }
 
-async function initCamera() {
-    video = document.getElementById('video');
-    canvas = document.getElementById('canvas');
-    ctx = canvas.getContext('2d');
+// Gérer la photo capturée
+document.getElementById('photoInput').addEventListener('change', async function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    document.getElementById('loading').classList.add('active');
     
     try {
-        // Vérifier support BarcodeDetector
-        if (!('BarcodeDetector' in window)) {
-            alert('Détection de codes non supportée sur ce navigateur');
-            return;
+        const result = await decodeImage(file);
+        
+        if (result) {
+            addScan(result.text, result.type);
+        } else {
+            alert('Aucun code détecté. Réessayez avec une photo plus nette.');
         }
-        
-        barcodeDetector = new BarcodeDetector({
-            formats: [
-                'qr_code',
-                'ean_13',
-                'ean_8',
-                'code_128',
-                'code_39',
-                'upc_a',
-                'upc_e'
-            ]
-        });
-        
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment' }
-        });
-        
-        video.srcObject = stream;
-        scanning = true;
-        
-        // Démarrer le scan
-        requestAnimationFrame(scanFrame);
-        
     } catch (err) {
-        alert('Erreur caméra: ' + err.message);
+        alert('Erreur: ' + err.message);
     }
-}
-
-async function scanFrame() {
-    if (!scanning) return;
     
-    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0);
+    document.getElementById('loading').classList.remove('active');
+    e.target.value = '';
+});
+
+// Décoder une image
+async function decodeImage(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
         
-        try {
-            const barcodes = await barcodeDetector.detect(canvas);
-            if (barcodes.length > 0) {
-                const barcode = barcodes[0];
-                handleScan(barcode.rawValue, barcode.format);
-            }
-        } catch (e) {
-            console.error('Scan error:', e);
-        }
-    }
-    
-    requestAnimationFrame(scanFrame);
-}
-
-function handleScan(value, format) {
-    const now = Date.now();
-    if (value === lastScan && (now - lastTime) < 2000) return;
-    
-    lastScan = value;
-    lastTime = now;
-    
-    addScan(value, format);
+        reader.onload = function(e) {
+            const img = new Image();
+            
+            img.onload = function() {
+                const canvas = document.getElementById('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // Essayer QR code avec jsQR
+                const qrCode = jsQR(imageData.data, imageData.width, imageData.height);
+                if (qrCode) {
+                    resolve({ text: qrCode.data, type: 'QR Code' });
+                    return;
+                }
+                
+                // Essayer code-barres avec ZXing
+                try {
+                    const codeReader = new ZXing.BrowserMultiFormatReader();
+                    codeReader.decodeFromImageElement(img)
+                        .then(result => {
+                            resolve({ text: result.getText(), type: result.getBarcodeFormat().toString() });
+                        })
+                        .catch(() => {
+                            resolve(null);
+                        });
+                } catch (err) {
+                    resolve(null);
+                }
+            };
+            
+            img.src = e.target.result;
+        };
+        
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
 }
 
 function addScan(value, type) {
@@ -463,10 +456,11 @@ function exportToExcel() {
     }, 500);
 }
 
-window.addEventListener('load', () => {
-    loadScans();
-    initCamera();
-});
+window.addEventListener('load', loadScans);
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker-scanner.js').catch(e => console.log('SW:', e));
+}
     </script>
 </body>
 </html>
