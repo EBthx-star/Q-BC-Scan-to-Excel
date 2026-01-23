@@ -63,33 +63,47 @@ h1 { font-size: 20px; font-weight: 600; }
 
 .controls {
     position: fixed;
-    bottom: 70px;
+    bottom: 80px;
     left: 0;
     right: 0;
     display: flex;
     justify-content: center;
-    gap: 15px;
+    gap: 20px;
     z-index: 100;
 }
 
 .btn {
     background: white;
     border: none;
-    border-radius: 50%;
-    width: 60px;
-    height: 60px;
+    border-radius: 16px;
+    padding: 12px 24px;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-size: 28px;
+    gap: 4px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     cursor: pointer;
+    min-width: 80px;
 }
 
 .btn:active { transform: scale(0.95); }
 
-.btn-clear { background: #FF3B30; color: white; }
-.btn-export { background: #007AFF; color: white; }
+.btn-icon {
+    font-size: 32px;
+}
+
+.btn-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+}
+
+.btn-clear { background: #FF3B30; }
+.btn-clear .btn-label { color: white; }
+
+.btn-export { background: #007AFF; }
+.btn-export .btn-label { color: white; }
 
 .scan-toast {
     position: fixed;
@@ -173,17 +187,6 @@ h1 { font-size: 20px; font-weight: 600; }
     font-size: 12px; 
     color: #666; 
     margin-bottom: 4px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.scan-custom-number {
-    background: #007AFF;
-    color: white;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
 }
 .scan-value { font-weight: 600; font-size: 14px; word-break: break-all; }
 .scan-type { font-size: 11px; color: #999; margin-top: 4px; }
@@ -194,70 +197,6 @@ h1 { font-size: 20px; font-weight: 600; }
 
 .empty-state { text-align: center; padding: 40px 20px; color: #666; }
 .empty-state-icon { font-size: 64px; margin-bottom: 16px; }
-
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 3000;
-    align-items: center;
-    justify-content: center;
-}
-
-.modal.active { display: flex; }
-
-.modal-content {
-    background: white;
-    border-radius: 16px;
-    padding: 20px;
-    max-width: 90%;
-    width: 300px;
-}
-
-.modal-title {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 15px;
-    text-align: center;
-}
-
-.modal-input {
-    width: 100%;
-    padding: 12px;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    font-size: 16px;
-    margin-bottom: 15px;
-}
-
-.modal-buttons {
-    display: flex;
-    gap: 10px;
-}
-
-.modal-btn {
-    flex: 1;
-    padding: 12px;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.modal-btn-cancel {
-    background: #e0e0e0;
-    color: #333;
-}
-
-.modal-btn-confirm {
-    background: #34C759;
-    color: white;
-}
     </style>
 </head>
 <body>
@@ -271,9 +210,18 @@ h1 { font-size: 20px; font-weight: 600; }
     </div>
     
     <div class="controls">
-        <button class="btn" onclick="toggleList()">📋</button>
-        <button class="btn btn-export" onclick="exportToExcel()">💾</button>
-        <button class="btn btn-clear" onclick="clearAllScans()">🗑️</button>
+        <button class="btn" onclick="toggleList()">
+            <div class="btn-icon">📋</div>
+            <div class="btn-label">Liste</div>
+        </button>
+        <button class="btn btn-export" onclick="exportToExcel()">
+            <div class="btn-icon">💾</div>
+            <div class="btn-label">Exporter</div>
+        </button>
+        <button class="btn btn-clear" onclick="clearAllScans()">
+            <div class="btn-icon">🗑️</div>
+            <div class="btn-label">Vider</div>
+        </button>
     </div>
     
     <div class="list-panel" id="listPanel">
@@ -293,22 +241,9 @@ h1 { font-size: 20px; font-weight: 600; }
         <div class="scan-toast-value" id="toastValue"></div>
     </div>
     
-    <!-- Modal pour numéro personnalisé -->
-    <div class="modal" id="numberModal">
-        <div class="modal-content">
-            <div class="modal-title">Numéro de scan</div>
-            <input type="text" id="customNumber" class="modal-input" placeholder="Ex: A123, Ref-001..." autocomplete="off">
-            <div class="modal-buttons">
-                <button class="modal-btn modal-btn-cancel" onclick="cancelNumber()">Annuler</button>
-                <button class="modal-btn modal-btn-confirm" onclick="confirmNumber()">OK</button>
-            </div>
-        </div>
-    </div>
-    
     <script>
 let scans = [];
 let html5QrcodeScanner;
-let pendingScanData = null;
 let sessionId = Date.now();
 
 function loadScans() {
@@ -323,7 +258,6 @@ function saveScans() {
     localStorage.setItem('scans', JSON.stringify(scans));
 }
 
-// Initialiser le scanner HTML5-QRCode (meilleur pour iPhone)
 function initScanner() {
     html5QrcodeScanner = new Html5QrcodeScanner(
         "reader",
@@ -331,6 +265,10 @@ function initScanner() {
             fps: 10,
             qrbox: { width: 250, height: 250 },
             aspectRatio: 1.0,
+            // Forcer caméra arrière
+            videoConstraints: {
+                facingMode: { exact: "environment" }
+            },
             formatsToSupport: [
                 Html5QrcodeSupportedFormats.QR_CODE,
                 Html5QrcodeSupportedFormats.EAN_13,
@@ -349,55 +287,29 @@ function initScanner() {
 }
 
 function onScanSuccess(decodedText, decodedResult) {
-    // Arrêter le scan temporairement
+    // Pause temporaire pour éviter les doublons
     html5QrcodeScanner.pause(true);
     
     const format = decodedResult.result.format ? decodedResult.result.format.formatName : 'Code';
-    askForNumber(decodedText, format);
+    
+    // Ajout automatique SANS popup
+    addScan(decodedText, format);
+    
+    // Reprendre le scan après 2 secondes
+    setTimeout(() => {
+        html5QrcodeScanner.resume();
+    }, 2000);
 }
 
 function onScanError(error) {
-    // Ignorer les erreurs normales de scan
+    // Ignorer les erreurs de scan
 }
 
-// Demander un numéro personnalisé
-function askForNumber(value, type) {
-    pendingScanData = { value, type };
-    document.getElementById('customNumber').value = '';
-    document.getElementById('numberModal').classList.add('active');
-    document.getElementById('customNumber').focus();
-}
-
-// Annuler le numéro
-function cancelNumber() {
-    document.getElementById('numberModal').classList.remove('active');
-    addScan(pendingScanData.value, pendingScanData.type, null);
-    pendingScanData = null;
-    // Reprendre le scan
-    html5QrcodeScanner.resume();
-}
-
-// Confirmer le numéro
-function confirmNumber() {
-    const customNumber = document.getElementById('customNumber').value.trim();
-    document.getElementById('numberModal').classList.remove('active');
-    addScan(pendingScanData.value, pendingScanData.type, customNumber || null);
-    pendingScanData = null;
-    // Reprendre le scan
-    html5QrcodeScanner.resume();
-}
-
-// Enter dans input
-document.getElementById('customNumber').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') confirmNumber();
-});
-
-function addScan(value, type, customNumber) {
+function addScan(value, type) {
     scans.push({
         id: Date.now(),
         value: value,
         type: type,
-        customNumber: customNumber,
         timestamp: new Date().toISOString()
     });
     saveScans();
@@ -405,7 +317,7 @@ function addScan(value, type, customNumber) {
     showToast('✅ Scan #' + scans.length + ' enregistré !');
     if (navigator.vibrate) navigator.vibrate(200);
     
-    // Auto-export après chaque scan
+    // Export automatique
     autoExportToExcel();
 }
 
@@ -429,10 +341,7 @@ function updateUI() {
     content.innerHTML = scans.map((s, i) => `
         <div class="scan-item">
             <div class="scan-info">
-                <div class="scan-number">
-                    #${i + 1}
-                    ${s.customNumber ? `<span class="scan-custom-number">${s.customNumber}</span>` : ''}
-                </div>
+                <div class="scan-number">#${i + 1}</div>
                 <div class="scan-value">${s.value}</div>
                 <div class="scan-type">${s.type} • ${new Date(s.timestamp).toLocaleString('fr-FR')}</div>
             </div>
@@ -461,32 +370,29 @@ function deleteScan(id) {
     }
 }
 
-// Vider tous les scans
 function clearAllScans() {
     if (scans.length === 0) {
         alert('Aucun scan à supprimer');
         return;
     }
     
-    if (confirm(`Supprimer tous les ${scans.length} scans ?\n\n⚠️ Ceci créera un nouveau fichier Excel vide.`)) {
+    if (confirm(`Supprimer tous les ${scans.length} scans ?\n\n⚠️ Un nouveau fichier Excel sera créé.`)) {
         scans = [];
         saveScans();
         updateUI();
-        sessionId = Date.now(); // Nouveau fichier
+        sessionId = Date.now();
         showToast('🗑️ Tous les scans supprimés');
     }
 }
 
-// Export automatique à chaque scan
 function autoExportToExcel() {
     if (scans.length === 0) return;
     
-    const data = [['#', 'Numéro', 'Code', 'Type', 'Date/Heure']];
+    const data = [['#', 'Code', 'Type', 'Date/Heure']];
     
     scans.forEach((s, i) => {
         data.push([
             i + 1,
-            s.customNumber || '',
             s.value,
             s.type,
             new Date(s.timestamp).toLocaleString('fr-FR')
@@ -495,15 +401,13 @@ function autoExportToExcel() {
     
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(data);
-    ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 40 }, { wch: 20 }, { wch: 20 }];
+    ws['!cols'] = [{ wch: 5 }, { wch: 40 }, { wch: 20 }, { wch: 20 }];
     XLSX.utils.book_append_sheet(wb, ws, 'Scans');
     
-    // Nom de fichier avec ID de session pour regrouper les scans
     const filename = `scans_${sessionId}.xlsx`;
     XLSX.writeFile(wb, filename);
 }
 
-// Export manuel
 function exportToExcel() {
     if (scans.length === 0) {
         alert('Aucun scan à exporter');
