@@ -14,7 +14,6 @@
     <link rel="manifest" href="manifest-scanner.json">
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' rx='40' fill='%2334C759'/%3E%3C/svg%3E">
     
-    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     
     <style>
@@ -52,14 +51,49 @@ h1 { font-size: 20px; font-weight: 600; }
 
 #main-container {
     flex: 1;
-    position: relative;
-    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-#reader {
-    width: 100%;
-    height: 100%;
+.scan-instruction {
+    color: white;
+    text-align: center;
+    font-size: 18px;
+    margin-bottom: 30px;
+    line-height: 1.6;
 }
+
+.scan-button {
+    width: 140px;
+    height: 140px;
+    background: white;
+    border: none;
+    border-radius: 50%;
+    color: #667eea;
+    font-size: 64px;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    transition: transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.scan-button:active { transform: scale(0.95); }
+
+.scan-hint {
+    color: rgba(255,255,255,0.9);
+    text-align: center;
+    font-size: 14px;
+    margin-top: 20px;
+    max-width: 80%;
+}
+
+input[type="file"] { display: none; }
 
 .controls {
     position: fixed;
@@ -195,6 +229,38 @@ h1 { font-size: 20px; font-weight: 600; }
 .empty-state { text-align: center; padding: 40px 20px; color: #666; }
 .empty-state-icon { font-size: 64px; margin-bottom: 16px; }
 
+.loading {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 4000;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    color: white;
+}
+
+.loading.active { display: flex; }
+
+.spinner {
+    border: 4px solid rgba(255,255,255,0.3);
+    border-top: 4px solid white;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 .modal {
     display: none;
     position: fixed;
@@ -267,7 +333,14 @@ h1 { font-size: 20px; font-weight: 600; }
     </header>
     
     <div id="main-container">
-        <div id="reader"></div>
+        <div class="scan-instruction">
+            Utilisez l'appareil photo<br>pour scanner un code
+        </div>
+        <button class="scan-button" onclick="document.getElementById('photoInput').click()">📸</button>
+        <div class="scan-hint">
+            💡 L'appareil photo iPhone<br>détecte automatiquement les codes
+        </div>
+        <input type="file" id="photoInput" accept="image/*" capture="environment">
     </div>
     
     <div class="controls">
@@ -293,22 +366,27 @@ h1 { font-size: 20px; font-weight: 600; }
         <div class="scan-toast-value" id="toastValue"></div>
     </div>
     
-    <!-- Modal pour numéro personnalisé -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div id="loadingText">Analyse...</div>
+    </div>
+    
+    <!-- Modal pour entrer manuellement -->
     <div class="modal" id="numberModal">
         <div class="modal-content">
-            <div class="modal-title">Numéro de scan</div>
+            <div class="modal-title">Entrez le code manuellement</div>
+            <input type="text" id="manualCode" class="modal-input" placeholder="Tapez le code ici..." autocomplete="off">
+            <div class="modal-title" style="font-size: 14px; margin-top: 15px;">Numéro (optionnel)</div>
             <input type="text" id="customNumber" class="modal-input" placeholder="Ex: A123, Ref-001..." autocomplete="off">
             <div class="modal-buttons">
-                <button class="modal-btn modal-btn-cancel" onclick="cancelNumber()">Annuler</button>
-                <button class="modal-btn modal-btn-confirm" onclick="confirmNumber()">OK</button>
+                <button class="modal-btn modal-btn-cancel" onclick="cancelManual()">Annuler</button>
+                <button class="modal-btn modal-btn-confirm" onclick="confirmManual()">OK</button>
             </div>
         </div>
     </div>
     
     <script>
 let scans = [];
-let html5QrcodeScanner;
-let pendingScanData = null;
 let sessionId = Date.now();
 
 function loadScans() {
@@ -323,73 +401,51 @@ function saveScans() {
     localStorage.setItem('scans', JSON.stringify(scans));
 }
 
-// Initialiser le scanner HTML5-QRCode (meilleur pour iPhone)
-function initScanner() {
-    html5QrcodeScanner = new Html5QrcodeScanner(
-        "reader",
-        { 
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1.0,
-            formatsToSupport: [
-                Html5QrcodeSupportedFormats.QR_CODE,
-                Html5QrcodeSupportedFormats.EAN_13,
-                Html5QrcodeSupportedFormats.EAN_8,
-                Html5QrcodeSupportedFormats.UPC_A,
-                Html5QrcodeSupportedFormats.UPC_E,
-                Html5QrcodeSupportedFormats.CODE_128,
-                Html5QrcodeSupportedFormats.CODE_39,
-                Html5QrcodeSupportedFormats.CODE_93
-            ]
-        },
-        false
-    );
+// Gérer la photo capturée - demander saisie manuelle
+document.getElementById('photoInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
     
-    html5QrcodeScanner.render(onScanSuccess, onScanError);
-}
-
-function onScanSuccess(decodedText, decodedResult) {
-    // Arrêter le scan temporairement
-    html5QrcodeScanner.pause(true);
+    // Sur iPhone, si l'appareil photo n'a pas détecté le code,
+    // on demande à l'utilisateur de le saisir manuellement
+    showManualEntry();
     
-    const format = decodedResult.result.format ? decodedResult.result.format.formatName : 'Code';
-    askForNumber(decodedText, format);
-}
+    e.target.value = '';
+});
 
-function onScanError(error) {
-    // Ignorer les erreurs normales de scan
-}
-
-// Demander un numéro personnalisé
-function askForNumber(value, type) {
-    pendingScanData = { value, type };
+function showManualEntry() {
+    document.getElementById('manualCode').value = '';
     document.getElementById('customNumber').value = '';
     document.getElementById('numberModal').classList.add('active');
-    document.getElementById('customNumber').focus();
+    document.getElementById('manualCode').focus();
 }
 
-// Annuler le numéro
-function cancelNumber() {
+function cancelManual() {
     document.getElementById('numberModal').classList.remove('active');
-    addScan(pendingScanData.value, pendingScanData.type, null);
-    pendingScanData = null;
-    // Reprendre le scan
-    html5QrcodeScanner.resume();
 }
 
-// Confirmer le numéro
-function confirmNumber() {
+function confirmManual() {
+    const code = document.getElementById('manualCode').value.trim();
     const customNumber = document.getElementById('customNumber').value.trim();
+    
+    if (!code) {
+        alert('Veuillez entrer un code');
+        return;
+    }
+    
     document.getElementById('numberModal').classList.remove('active');
-    addScan(pendingScanData.value, pendingScanData.type, customNumber || null);
-    pendingScanData = null;
-    // Reprendre le scan
-    html5QrcodeScanner.resume();
+    addScan(code, 'Manuel', customNumber || null);
 }
 
 // Enter dans input
+document.getElementById('manualCode').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        document.getElementById('customNumber').focus();
+    }
+});
+
 document.getElementById('customNumber').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') confirmNumber();
+    if (e.key === 'Enter') confirmManual();
 });
 
 function addScan(value, type, customNumber) {
@@ -405,7 +461,7 @@ function addScan(value, type, customNumber) {
     showToast('✅ Scan #' + scans.length + ' enregistré !');
     if (navigator.vibrate) navigator.vibrate(200);
     
-    // Auto-export après chaque scan
+    // Auto-export
     autoExportToExcel();
 }
 
@@ -461,23 +517,21 @@ function deleteScan(id) {
     }
 }
 
-// Vider tous les scans
 function clearAllScans() {
     if (scans.length === 0) {
         alert('Aucun scan à supprimer');
         return;
     }
     
-    if (confirm(`Supprimer tous les ${scans.length} scans ?\n\n⚠️ Ceci créera un nouveau fichier Excel vide.`)) {
+    if (confirm(`Supprimer tous les ${scans.length} scans ?`)) {
         scans = [];
         saveScans();
         updateUI();
-        sessionId = Date.now(); // Nouveau fichier
+        sessionId = Date.now();
         showToast('🗑️ Tous les scans supprimés');
     }
 }
 
-// Export automatique à chaque scan
 function autoExportToExcel() {
     if (scans.length === 0) return;
     
@@ -498,12 +552,10 @@ function autoExportToExcel() {
     ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 40 }, { wch: 20 }, { wch: 20 }];
     XLSX.utils.book_append_sheet(wb, ws, 'Scans');
     
-    // Nom de fichier avec ID de session pour regrouper les scans
     const filename = `scans_${sessionId}.xlsx`;
     XLSX.writeFile(wb, filename);
 }
 
-// Export manuel
 function exportToExcel() {
     if (scans.length === 0) {
         alert('Aucun scan à exporter');
@@ -514,10 +566,7 @@ function exportToExcel() {
     showToast(`💾 ${scans.length} scans exportés !`);
 }
 
-window.addEventListener('load', () => {
-    loadScans();
-    initScanner();
-});
+window.addEventListener('load', loadScans);
 
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('service-worker-scanner.js').catch(e => console.log('SW:', e));
