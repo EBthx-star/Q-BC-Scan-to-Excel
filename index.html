@@ -293,7 +293,6 @@ h1 { font-size: 20px; font-weight: 600; }
         <div class="scan-toast-value" id="toastValue"></div>
     </div>
     
-    <!-- Modal pour numéro personnalisé -->
     <div class="modal" id="numberModal">
         <div class="modal-content">
             <div class="modal-title">Numéro de scan</div>
@@ -323,7 +322,6 @@ function saveScans() {
     localStorage.setItem('scans', JSON.stringify(scans));
 }
 
-// Initialiser le scanner HTML5-QRCode (meilleur pour iPhone)
 function initScanner() {
     html5QrcodeScanner = new Html5QrcodeScanner(
         "reader",
@@ -349,18 +347,15 @@ function initScanner() {
 }
 
 function onScanSuccess(decodedText, decodedResult) {
-    // Arrêter le scan temporairement
     html5QrcodeScanner.pause(true);
-    
     const format = decodedResult.result.format ? decodedResult.result.format.formatName : 'Code';
     askForNumber(decodedText, format);
 }
 
 function onScanError(error) {
-    // Ignorer les erreurs normales de scan
+    // Ignorer
 }
 
-// Demander un numéro personnalisé
 function askForNumber(value, type) {
     pendingScanData = { value, type };
     document.getElementById('customNumber').value = '';
@@ -368,26 +363,21 @@ function askForNumber(value, type) {
     document.getElementById('customNumber').focus();
 }
 
-// Annuler le numéro
 function cancelNumber() {
     document.getElementById('numberModal').classList.remove('active');
     addScan(pendingScanData.value, pendingScanData.type, null);
     pendingScanData = null;
-    // Reprendre le scan
     html5QrcodeScanner.resume();
 }
 
-// Confirmer le numéro
 function confirmNumber() {
     const customNumber = document.getElementById('customNumber').value.trim();
     document.getElementById('numberModal').classList.remove('active');
     addScan(pendingScanData.value, pendingScanData.type, customNumber || null);
     pendingScanData = null;
-    // Reprendre le scan
     html5QrcodeScanner.resume();
 }
 
-// Enter dans input
 document.getElementById('customNumber').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') confirmNumber();
 });
@@ -404,8 +394,6 @@ function addScan(value, type, customNumber) {
     updateUI();
     showToast('✅ Scan #' + scans.length + ' enregistré !');
     if (navigator.vibrate) navigator.vibrate(200);
-    
-    // Auto-export après chaque scan
     autoExportToExcel();
 }
 
@@ -461,23 +449,21 @@ function deleteScan(id) {
     }
 }
 
-// Vider tous les scans
 function clearAllScans() {
     if (scans.length === 0) {
         alert('Aucun scan à supprimer');
         return;
     }
     
-    if (confirm(`Supprimer tous les ${scans.length} scans ?\n\n⚠️ Ceci créera un nouveau fichier Excel vide.`)) {
+    if (confirm(`Supprimer tous les ${scans.length} scans ?`)) {
         scans = [];
         saveScans();
         updateUI();
-        sessionId = Date.now(); // Nouveau fichier
+        sessionId = Date.now();
         showToast('🗑️ Tous les scans supprimés');
     }
 }
 
-// Export automatique à chaque scan
 function autoExportToExcel() {
     if (scans.length === 0) return;
     
@@ -498,12 +484,10 @@ function autoExportToExcel() {
     ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 40 }, { wch: 20 }, { wch: 20 }];
     XLSX.utils.book_append_sheet(wb, ws, 'Scans');
     
-    // Nom de fichier avec ID de session pour regrouper les scans
     const filename = `scans_${sessionId}.xlsx`;
     XLSX.writeFile(wb, filename);
 }
 
-// Export manuel
 function exportToExcel() {
     if (scans.length === 0) {
         alert('Aucun scan à exporter');
